@@ -7,21 +7,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Centro de Treinamento Leandro Nascimento</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
     <script>
+      // Shim para evitar erro de 'process is not defined' no navegador
+      window.process = window.process || { env: {} };
+      
       tailwind.config = {
         theme: {
           extend: {
             colors: {
-              'dojo-dark': '#F9FAFB', // Page background (light gray)
-              'dojo-light-dark': '#FFFFFF', // Card background (white)
-              'dojo-gray': '#E5E7EB', // Borders and dividers
-              'dojo-light-gray': '#4B5563', // Main text color
-              'dojo-primary': '#111827', // Primary actions (black)
-              'dojo-primary-hover': '#374151', // Hover for primary (dark gray)
-              'dojo-secondary': '#10B981', // Success color (green)
-              'dojo-accent': '#FACC15', // Main yellow from logo (Yellow-400)
-              'dojo-accent-light': '#FEF9C3', // Light yellow for backgrounds (Yellow-100)
-              'dojo-accent-dark': '#B45309', // Dark yellow for text (Amber-700)
+              'dojo-dark': '#F9FAFB',
+              'dojo-light-dark': '#FFFFFF',
+              'dojo-gray': '#E5E7EB',
+              'dojo-light-gray': '#4B5563',
+              'dojo-primary': '#111827',
+              'dojo-primary-hover': '#374151',
+              'dojo-secondary': '#10B981',
+              'dojo-accent': '#FACC15',
+              'dojo-accent-light': '#FEF9C3',
+              'dojo-accent-dark': '#B45309',
             }
           }
         }
@@ -35,6 +39,7 @@
     "react": "https://aistudiocdn.com/react@^19.2.1",
     "vite": "https://aistudiocdn.com/vite@^7.2.7",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "react-dom/client": "https://aistudiocdn.com/react-dom@^19.2.1/client",
     "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.2"
   }
 }

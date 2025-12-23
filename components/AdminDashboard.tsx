@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import type { Student } from '../types';
 import { PaymentStatus } from '../types';
@@ -32,246 +33,172 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ students, onDeleteStude
   const [loadingReport, setLoadingReport] = useState(false);
   const [report, setReport] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [startDate, setStartDate] = useState<string | null>(null);
-  const [endDate, setEndDate] = useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
+  const pendingStudents = useMemo(() => 
+    students.filter(s => s.status === PaymentStatus.Pending)
+      .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
+  , [students]);
 
   const overdueStudents = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0); 
-
-    const threeDaysAgo = new Date(today);
-    threeDaysAgo.setDate(today.getDate() - 3);
-
-    return students.filter(student => 
-      student.status === PaymentStatus.Pending && new Date(student.dueDate) < threeDaysAgo
-    );
-  }, [students]);
-
-  const filteredStudents = useMemo(() => {
-    let tempStudents = [...students];
-
-    if (searchTerm) {
-      const lowercasedFilter = searchTerm.toLowerCase();
-      tempStudents = tempStudents.filter(student =>
-        student.name.toLowerCase().includes(lowercasedFilter) ||
-        student.status.toLowerCase().includes(lowercasedFilter) ||
-        student.fee.toString().includes(lowercasedFilter)
-      );
-    }
-
-    const start = startDate ? new Date(startDate + 'T00:00:00') : null;
-    const end = endDate ? new Date(endDate + 'T23:59:59') : null;
-
-    if (start || end) {
-      tempStudents = tempStudents.filter(student => {
+    return pendingStudents.filter(student => {
         const dueDate = new Date(student.dueDate);
-        if (start && dueDate < start) return false;
-        if (end && dueDate > end) return false;
-        return true;
-      });
-    }
-    
-    return tempStudents;
-  }, [students, searchTerm, startDate, endDate]);
+        dueDate.setHours(23, 59, 59);
+        return today > dueDate;
+    });
+  }, [pendingStudents]);
 
   const stats = useMemo(() => {
-    const paidStudents = filteredStudents.filter(s => s.status === PaymentStatus.Paid);
+    const paidStudents = students.filter(s => s.status === PaymentStatus.Paid);
     const totalRevenue = paidStudents.reduce((acc, s) => acc + s.fee, 0);
+    const pendingRevenue = pendingStudents.reduce((acc, s) => acc + s.fee, 0);
     return {
-      totalStudents: filteredStudents.length,
+      totalStudents: students.length,
       paidCount: paidStudents.length,
-      pendingCount: filteredStudents.length - paidStudents.length,
+      pendingCount: pendingStudents.length,
       totalRevenue,
+      pendingRevenue
     };
-  }, [filteredStudents]);
+  }, [students, pendingStudents]);
 
   const handleGenerateReport = async () => {
     setLoadingReport(true);
-    setReport('');
     const summary = await generateMonthlySummary(students);
     setReport(summary);
     setLoadingReport(false);
   };
-  
-  const handleOpenDeleteDialog = (student: Student) => {
-    setStudentToDelete(student);
-    setIsDeleteDialogOpen(true);
-  };
 
-  const handleConfirmDelete = () => {
-    if (studentToDelete) {
-      onDeleteStudent(studentToDelete.id);
-      setIsDeleteDialogOpen(false);
-      setStudentToDelete(null);
-    }
+  const openWhatsApp = (student: Student) => {
+    const isOverdue = new Date(student.dueDate) < new Date();
+    const message = isOverdue 
+      ? `Olá ${student.name.split(' ')[0]}! Tudo bem? Verificamos aqui que a sua mensalidade do CT Leandro Nascimento venceu dia ${student.dueDate.getDate()}. Consegue nos enviar o comprovante de pagamento? Oss! 🥋`
+      : `Olá ${student.name.split(' ')[0]}! Passando para lembrar que sua mensalidade vence dia ${student.dueDate.getDate()}. Tamo junto! Oss! 🥋`;
+    window.open(`https://wa.me/${student.phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
-  
-  const handleSelectStudent = (student: Student) => {
-    setSelectedStudent(student);
-    setIsDetailModalOpen(true);
-  };
-
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (reader.result) {
-          onSetLogo(reader.result as string);
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const paidStudents = useMemo(() => filteredStudents.filter(s => s.status === PaymentStatus.Paid), [filteredStudents]);
-  const pendingStudents = useMemo(() => filteredStudents.filter(s => s.status === PaymentStatus.Pending), [filteredStudents]);
 
   return (
-    <>
-      <div className="p-4 md:p-8 space-y-8">
-        <OverdueNotice students={overdueStudents} />
+    <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
+      {/* SEÇÃO QUEM DEVE - FOCO TOTAL */}
+      <div className="bg-white rounded-2xl shadow-2xl border-l-[12px] border-dojo-accent overflow-hidden">
+        <div className="p-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                <div>
+                    <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tighter">🚨 Quem falta pagar?</h2>
+                    <p className="text-sm text-gray-500 font-bold">Lista de alunos pendentes e em atraso no mês atual</p>
+                </div>
+                <div className="bg-dojo-accent-light p-4 rounded-2xl border-2 border-dojo-accent text-right">
+                    <span className="text-[10px] font-black text-dojo-accent-dark uppercase block">Total a Receber</span>
+                    <span className="text-3xl font-black text-dojo-accent-dark">R$ {stats.pendingRevenue.toFixed(2)}</span>
+                </div>
+            </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard title="Total de Alunos (Filtro)" value={stats.totalStudents} />
-          <StatCard title="Pagos (Filtro)" value={stats.paidCount} />
-          <StatCard title="Pendentes (Filtro)" value={stats.pendingCount} />
-          <StatCard title="Receita (Filtro)" value={`R$ ${stats.totalRevenue.toFixed(2)}`} />
-        </div>
-
-        <div className="space-y-8">
-          <div className="bg-dojo-light-dark p-6 rounded-lg shadow-lg">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">Filtro e Ações</h3>
-              <div className="flex flex-wrap gap-4 items-end mb-6">
-                  <div className="relative flex-grow min-w-[200px]">
-                      <label htmlFor="search-input" className="block mb-1 text-xs font-medium text-dojo-light-gray">Buscar Aluno</label>
-                      <div className="absolute inset-y-0 top-6 left-0 pl-3 flex items-center pointer-events-none">
-                          <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                          </svg>
-                      </div>
-                      <input
-                          id="search-input"
-                          type="text"
-                          placeholder="Nome, status ou valor..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="w-full bg-gray-50 border border-dojo-gray text-gray-900 placeholder-gray-400 text-sm rounded-lg focus:ring-dojo-primary focus:border-dojo-primary block p-2.5 pl-10"
-                      />
-                  </div>
-                  <div>
-                      <label htmlFor="start-date" className="block mb-1 text-xs font-medium text-dojo-light-gray">Vencimento De:</label>
-                      <input
-                          id="start-date"
-                          type="date"
-                          value={startDate || ''}
-                          onChange={(e) => setStartDate(e.target.value)}
-                          className="w-full bg-gray-50 border border-dojo-gray text-gray-900 placeholder-dojo-gray text-sm rounded-lg focus:ring-dojo-primary focus:border-dojo-primary block p-2.5"
-                      />
-                  </div>
-                  <div>
-                      <label htmlFor="end-date" className="block mb-1 text-xs font-medium text-dojo-light-gray">Até:</label>
-                      <input
-                          id="end-date"
-                          type="date"
-                          value={endDate || ''}
-                          onChange={(e) => setEndDate(e.target.value)}
-                          className="w-full bg-gray-50 border border-dojo-gray text-gray-900 placeholder-dojo-gray text-sm rounded-lg focus:ring-dojo-primary focus:border-dojo-primary block p-2.5"
-                      />
-                  </div>
-                  <button
-                      onClick={() => { setStartDate(null); setEndDate(null); }}
-                      className="bg-gray-500 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-gray-600 transition-colors"
-                  >
-                      Limpar Datas
-                  </button>
-              </div>
-              <div className="flex flex-wrap gap-4 items-center">
-                <button
-                    onClick={() => setIsAddModalOpen(true)}
-                    className="bg-dojo-secondary text-white font-bold py-2 px-4 rounded-lg hover:bg-opacity-90 transition-colors flex items-center"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                  </svg>
-                  Adicionar Aluno
-                </button>
-                <button
-                    onClick={handleGenerateReport}
-                    disabled={loadingReport}
-                    className="bg-dojo-primary text-white font-bold py-2 px-4 rounded-lg hover:bg-dojo-primary-hover transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center"
-                >
-                    {loadingReport ? (
-                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                    ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
-                    )}
-                    {loadingReport ? 'Gerando...' : 'Gerar Relatório Financeiro'}
-                </button>
-                <label
-                  htmlFor="logo-upload"
-                  className="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors flex items-center cursor-pointer"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-                  </svg>
-                  Alterar Logo
-                </label>
-                <input 
-                  id="logo-upload" 
-                  type="file" 
-                  className="hidden" 
-                  accept="image/*"
-                  onChange={handleLogoChange}
-                />
-              </div>
-              {report && (
-                  <div className="mt-4 p-4 bg-gray-50 rounded-md border border-dojo-gray prose max-w-none">
-                      <pre className="whitespace-pre-wrap font-sans text-sm">{report}</pre>
-                  </div>
-              )}
-          </div>
-          <StudentList title="Pagamentos Pendentes" students={pendingStudents} icon={<PendingIcon />} onDelete={handleOpenDeleteDialog} onSelectStudent={handleSelectStudent} />
-          <StudentList title="Pagamentos em Dia" students={paidStudents} icon={<PaidIcon />} onDelete={handleOpenDeleteDialog} onSelectStudent={handleSelectStudent} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {pendingStudents.length > 0 ? pendingStudents.map(student => {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const isOverdue = new Date(student.dueDate) < today;
+                    
+                    return (
+                        <div 
+                            key={student.id} 
+                            className={`p-4 rounded-2xl border-2 transition-all group ${isOverdue ? 'bg-red-50 border-red-200 shadow-red-100' : 'bg-gray-50 border-gray-100'}`}
+                        >
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className={`h-12 w-12 rounded-full flex items-center justify-center font-black text-white ${isOverdue ? 'bg-red-600 animate-pulse' : 'bg-dojo-primary'}`}>
+                                    {student.name.charAt(0)}
+                                </div>
+                                <div className="min-w-0">
+                                    <h4 className="font-bold text-gray-900 truncate">{student.name}</h4>
+                                    <p className={`text-[10px] font-black uppercase ${isOverdue ? 'text-red-600' : 'text-amber-600'}`}>
+                                        {isOverdue ? '⚠️ ATRASADO' : 'Pendente'} • Vence dia {student.dueDate.getDate()}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center justify-between mt-auto pt-3 border-t border-gray-200/50">
+                                <span className="text-sm font-black text-gray-800">R$ {student.fee.toFixed(2)}</span>
+                                <button 
+                                    onClick={() => openWhatsApp(student)}
+                                    className="bg-green-500 hover:bg-green-600 text-white font-black text-[10px] uppercase px-3 py-2 rounded-xl flex items-center gap-2 transition-transform active:scale-95"
+                                >
+                                    Cobrar
+                                </button>
+                            </div>
+                        </div>
+                    );
+                }) : (
+                    <div className="col-span-full py-12 text-center bg-dojo-secondary/10 rounded-2xl border-4 border-dashed border-dojo-secondary/30">
+                        <p className="text-dojo-secondary font-black text-xl italic">OSS! Nenhum devedor. Academia 100% em dia! 🥋</p>
+                    </div>
+                )}
+            </div>
         </div>
       </div>
-      <ConfirmDialog
-        isOpen={isDeleteDialogOpen}
-        onClose={() => setIsDeleteDialogOpen(false)}
-        onConfirm={handleConfirmDelete}
-        title="Confirmar Exclusão"
-      >
-        <p>Você tem certeza que deseja excluir o aluno <strong>{studentToDelete?.name}</strong>?</p>
-        <p className="mt-2 text-sm text-yellow-500">Esta ação não pode ser desfeita.</p>
+
+      {/* Estatísticas Rápidas */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard title="Total Alunos" value={stats.totalStudents} color="border-gray-200" />
+        <StatCard title="Pagos (Mês)" value={stats.paidCount} color="border-green-500" />
+        <StatCard title="Pendentes" value={stats.pendingCount} color="border-dojo-accent" />
+        <StatCard title="Total em Caixa" value={`R$ ${stats.totalRevenue.toFixed(2)}`} color="border-dojo-primary" />
+      </div>
+
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="relative w-full md:w-96">
+              <input
+                  type="text"
+                  placeholder="Pesquisar por nome..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-dojo-primary focus:border-dojo-primary block p-4 font-medium"
+              />
+          </div>
+          <div className="flex gap-2 w-full md:w-auto">
+            <button onClick={() => setIsAddModalOpen(true)} className="flex-1 md:flex-none bg-dojo-secondary text-white font-black py-4 px-8 rounded-xl hover:opacity-90 transition-all text-sm uppercase">
+              Novo Aluno
+            </button>
+            <button onClick={handleGenerateReport} disabled={loadingReport} className="flex-1 md:flex-none bg-dojo-primary text-white font-black py-4 px-8 rounded-xl hover:bg-gray-800 transition-all text-sm uppercase disabled:opacity-50">
+              {loadingReport ? 'Analisando...' : 'Análise da IA'}
+            </button>
+          </div>
+      </div>
+
+      {report && (
+          <div className="p-6 bg-gray-900 text-gray-100 rounded-3xl shadow-2xl border-l-[16px] border-dojo-accent relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4 opacity-10">
+                  <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/></svg>
+              </div>
+              <h4 className="text-xs font-black uppercase tracking-[0.2em] text-dojo-accent mb-4">Relatório Estratégico Gemini</h4>
+              <div className="prose prose-invert max-w-none">
+                <pre className="whitespace-pre-wrap font-sans text-sm md:text-base leading-relaxed">{report}</pre>
+              </div>
+              <button onClick={() => setReport('')} className="mt-6 text-[10px] font-black uppercase text-gray-500 hover:text-white underline">Fechar Relatório</button>
+          </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-8">
+        <StudentList title="Todos os Pendentes" students={students.filter(s => s.status === PaymentStatus.Pending)} icon={<PendingIcon />} onDelete={(s) => {setStudentToDelete(s); setIsDeleteDialogOpen(true);}} onSelectStudent={(s) => {setSelectedStudent(s); setIsDetailModalOpen(true);}} />
+        <StudentList title="Pagos Confirmados" students={students.filter(s => s.status === PaymentStatus.Paid)} icon={<PaidIcon />} onDelete={(s) => {setStudentToDelete(s); setIsDeleteDialogOpen(true);}} onSelectStudent={(s) => {setSelectedStudent(s); setIsDetailModalOpen(true);}} />
+      </div>
+
+      <ConfirmDialog isOpen={isDeleteDialogOpen} onClose={() => setIsDeleteDialogOpen(false)} onConfirm={() => { if(studentToDelete) {onDeleteStudent(studentToDelete.id); setIsDeleteDialogOpen(false);} }} title="Remover Aluno">
+        <p>Confirmar exclusão de <strong>{studentToDelete?.name}</strong>?</p>
       </ConfirmDialog>
-      <AddStudentModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onAddStudent={onAddStudent}
-      />
-      <StudentDetailModal
-        isOpen={isDetailModalOpen}
-        onClose={() => setIsDetailModalOpen(false)}
-        student={selectedStudent}
-        onUpdatePaymentHistory={onUpdatePaymentHistory}
-      />
-    </>
+      <AddStudentModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onAddStudent={onAddStudent} />
+      <StudentDetailModal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} student={selectedStudent} onUpdatePaymentHistory={onUpdatePaymentHistory} />
+    </div>
   );
 };
 
-const StatCard: React.FC<{ title: string; value: string | number }> = ({ title, value }) => (
-  <div className="bg-dojo-light-dark p-6 rounded-lg shadow-lg">
-    <h4 className="text-sm font-medium text-dojo-light-gray">{title}</h4>
-    <p className="text-3xl font-bold text-gray-900 mt-1">{value}</p>
+const StatCard: React.FC<{ title: string; value: string | number, color: string }> = ({ title, value, color }) => (
+  <div className={`bg-white p-6 rounded-2xl shadow-sm border-b-8 ${color} transition-transform hover:-translate-y-1`}>
+    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-tight mb-2">{title}</h4>
+    <p className="text-2xl font-black text-dojo-primary">{value}</p>
   </div>
 );
 
