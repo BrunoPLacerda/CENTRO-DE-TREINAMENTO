@@ -61,7 +61,6 @@ const App: React.FC = () => {
   const [logo, setLogo] = useState<string | null>(null);
 
   const handleAdminLogin = (user: string, pass: string) => {
-    // Implementação dos usuários administrativos
     const isAdmin = (user === 'admin' && pass === 'admin123');
     const isNewAdmin = (user === 'LNASCIMENTO' && pass === '123456');
     
@@ -93,6 +92,10 @@ const App: React.FC = () => {
 
   const handleAddStudent = (newStudent: Omit<Student, 'id'>) => {
     setStudents(prev => [...prev, { ...newStudent, id: Date.now() }]);
+  };
+
+  const handleUpdateStudent = (updatedStudent: Student) => {
+    setStudents(prev => prev.map(s => s.id === updatedStudent.id ? updatedStudent : s));
   };
 
   const handleUpdatePaymentHistory = (studentId: number, year: number, monthIndex: number) => {
@@ -139,6 +142,7 @@ const App: React.FC = () => {
             students={students} 
             onDeleteStudent={handleDeleteStudent} 
             onAddStudent={handleAddStudent}
+            onUpdateStudent={handleUpdateStudent}
             onSetLogo={setLogo}
             onUpdatePaymentHistory={handleUpdatePaymentHistory}
           />

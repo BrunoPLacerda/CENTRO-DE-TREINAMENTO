@@ -6,6 +6,7 @@ import { generateMonthlySummary } from '../services/geminiService.ts';
 import StudentList from './StudentList.tsx';
 import ConfirmDialog from './ConfirmDialog.tsx';
 import AddStudentModal from './AddStudentModal.tsx';
+import EditStudentModal from './EditStudentModal.tsx';
 import OverdueNotice from './OverdueNotice.tsx';
 import StudentDetailModal from './StudentDetailModal.tsx';
 
@@ -13,6 +14,7 @@ interface AdminDashboardProps {
   students: Student[];
   onDeleteStudent: (studentId: number) => void;
   onAddStudent: (student: Omit<Student, 'id'>) => void;
+  onUpdateStudent: (student: Student) => void;
   onSetLogo: (logoData: string) => void;
   onUpdatePaymentHistory: (studentId: number, year: number, monthIndex: number) => void;
 }
@@ -23,20 +25,23 @@ const PaidIcon = () => (
     </svg>
 );
 
-const PendingIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-dojo-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-);
-
-const AdminDashboard: React.FC<AdminDashboardProps> = ({ students, onDeleteStudent, onAddStudent, onSetLogo, onUpdatePaymentHistory }) => {
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
+  students, 
+  onDeleteStudent, 
+  onAddStudent, 
+  onUpdateStudent,
+  onSetLogo, 
+  onUpdatePaymentHistory 
+}) => {
   const [loadingReport, setLoadingReport] = useState(false);
   const [report, setReport] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+  const [studentToEdit, setStudentToEdit] = useState<Student | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
   const pendingStudents = useMemo(() => 
@@ -157,14 +162,29 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ students, onDeleteStude
         students={filteredStudents} 
         icon={<PaidIcon />} 
         onDelete={(s) => {setStudentToDelete(s); setIsDeleteDialogOpen(true);}} 
+        onEdit={(s) => {setStudentToEdit(s); setIsEditModalOpen(true);}}
         onSelectStudent={(s) => {setSelectedStudent(s); setIsDetailModalOpen(true);}} 
       />
 
       <ConfirmDialog isOpen={isDeleteDialogOpen} onClose={() => setIsDeleteDialogOpen(false)} onConfirm={() => { if(studentToDelete) {onDeleteStudent(studentToDelete.id); setIsDeleteDialogOpen(false);} }} title="Remover Aluno">
         <p>Remover <strong>{studentToDelete?.name}</strong>?</p>
       </ConfirmDialog>
+
       <AddStudentModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onAddStudent={onAddStudent} />
-      <StudentDetailModal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} student={selectedStudent} onUpdatePaymentHistory={onUpdatePaymentHistory} />
+      
+      <EditStudentModal 
+        isOpen={isEditModalOpen} 
+        onClose={() => setIsEditModalOpen(false)} 
+        student={studentToEdit} 
+        onUpdateStudent={onUpdateStudent} 
+      />
+
+      <StudentDetailModal 
+        isOpen={isDetailModalOpen} 
+        onClose={() => setIsDetailModalOpen(false)} 
+        student={selectedStudent} 
+        onUpdatePaymentHistory={onUpdatePaymentHistory} 
+      />
     </div>
   );
 };
