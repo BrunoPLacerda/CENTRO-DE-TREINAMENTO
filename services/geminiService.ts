@@ -1,30 +1,30 @@
 
 import { GoogleGenAI } from "@google/genai";
-import type { Student } from '../types';
-import { PaymentStatus } from '../types';
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+import type { Student } from '../types.ts';
+import { PaymentStatus } from '../types.ts';
 
 export const generateMonthlySummary = async (students: Student[]): Promise<string> => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    return "Configuração de IA não encontrada. Verifique as variáveis de ambiente.";
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
   const currentMonth = new Date().toLocaleString('pt-BR', { month: 'long' });
   const pendingStudents = students.filter(s => s.status === PaymentStatus.Pending);
-  
-  const pendingNames = pendingStudents.map(s => `- ${s.name} (Vence: ${s.dueDate.toLocaleDateString('pt-BR')})`).join('\n');
+  const pendingNames = pendingStudents.map(s => `- ${s.name} (Vence dia: ${s.dueDate.getDate()})`).join('\n');
 
   const prompt = `
-    Você é o assistente financeiro do Professor Leandro Nascimento.
-    Analise a situação de pagamentos de ${currentMonth}.
-    
-    Temos ${pendingStudents.length} alunos pendentes.
-    Lista de Pendentes:
+    Você é o assistente do Professor Leandro Nascimento.
+    Analise os pagamentos de ${currentMonth}.
+    Pendentes:
     ${pendingNames || 'Nenhum pendente.'}
 
     Tarefa:
-    1. Resuma quem são os alunos que precisam de atenção imediata (atrasados).
-    2. Sugira uma mensagem de texto curta e educada para enviar no WhatsApp desses alunos.
-    3. Dê uma estimativa de quanto o CT ainda tem a receber este mês.
-    
-    Seja direto, use tom profissional mas amigável (clima de academia de Jiu Jitsu).
+    1. Quem precisa de atenção imediata?
+    2. Sugira uma mensagem educada de WhatsApp para cobrar.
+    3. Valor total que ainda falta entrar.
+    Seja breve e direto (estilo academia de Jiu Jitsu).
   `;
 
   try {
@@ -32,9 +32,9 @@ export const generateMonthlySummary = async (students: Student[]): Promise<strin
       model: 'gemini-3-flash-preview',
       contents: prompt,
     });
-    return response.text;
+    return response.text || "Análise concluída com sucesso.";
   } catch (error) {
-    console.error("Error generating report:", error);
-    return "Não foi possível gerar a análise agora. Verifique a lista de pendentes abaixo.";
+    console.error("Gemini Error:", error);
+    return "Erro ao processar análise inteligente.";
   }
 };
