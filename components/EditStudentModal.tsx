@@ -30,9 +30,9 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ isOpen, onClose, st
         guardian: student.guardian,
         responsibleCpf: student.responsibleCpf,
         fee: student.fee.toString(),
-        dueDate: student.dueDate.toISOString().split('T')[0],
+        dueDate: new Date(student.dueDate).toISOString().split('T')[0],
         phone: student.phone,
-        startDate: student.startDate.toISOString().split('T')[0],
+        startDate: new Date(student.startDate).toISOString().split('T')[0],
       });
     }
   }, [student]);

@@ -6,6 +6,7 @@ import NotificationCard from './NotificationCard';
 
 interface StudentPortalProps {
   student: Student | null;
+  onCpfLinked?: (student: Student) => void;
 }
 
 const MONTHS = [
@@ -13,17 +14,57 @@ const MONTHS = [
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
 ];
 
-const StudentPortal: React.FC<StudentPortalProps> = ({ student }) => {
+const StudentPortal: React.FC<StudentPortalProps> = ({ student, onCpfLinked }) => {
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedMonthIndices, setSelectedMonthIndices] = useState<number[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'card'>('pix');
   const [copyStatus, setCopyStatus] = useState('Copiar Chave PIX');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [cpfInput, setCpfInput] = useState('');
+  const [isLinking, setIsLinking] = useState(false);
+  const [linkError, setLinkError] = useState('');
+
+  const formatCpf = (value: string) => {
+    return value
+      .replace(/\D/g, '')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})/, '$1-$2')
+      .replace(/(-\d{2})\d+?$/, '$1');
+  };
+
+  const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCpfInput(formatCpf(e.target.value));
+  };
+
+  const handleLinkCpf = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLinkError('');
+    setIsLinking(true);
+    const cleanCpf = cpfInput.replace(/\D/g, '');
+    if (cleanCpf.length !== 11) {
+      setLinkError('Por favor, insira um CPF válido com 11 dígitos.');
+      setIsLinking(false);
+      return;
+    }
+
+    try {
+      const { api } = await import('../src/lib/api.ts');
+      const result = await api.linkCpf(cleanCpf);
+      if (result.success && onCpfLinked) {
+        onCpfLinked(result.student);
+      }
+    } catch (err: any) {
+      setLinkError(err.message || 'Erro ao vincular CPF. Verifique se o CPF está correto.');
+    } finally {
+      setIsLinking(false);
+    }
+  };
 
   // Initialize available years based on student start date
   const availableYears = useMemo(() => {
     if (!student) return [new Date().getFullYear()];
-    const startYear = student.startDate.getFullYear();
+    const startYear = new Date(student.startDate).getFullYear();
     const currentYear = new Date().getFullYear();
     const years = [];
     for (let y = currentYear + 1; y >= startYear; y--) {
@@ -39,9 +80,54 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student }) => {
 
   if (!student) {
     return (
-      <div className="p-4 md:p-8 text-center">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Portal do Aluno</h2>
-        <p>Carregando dados do aluno...</p>
+      <div className="p-4 md:p-8 max-w-md mx-auto my-12 bg-white rounded-2xl shadow-xl border border-gray-100 relative">
+        <div className="absolute top-0 left-0 w-full h-2 bg-dojo-primary rounded-t-2xl"></div>
+        <div className="text-center space-y-4">
+          <div className="p-3 bg-dojo-accent-light text-dojo-accent-dark inline-block rounded-full">
+            <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800">Vincular Conta</h2>
+          <p className="text-gray-500 text-sm">
+            Nenhum perfil de aluno está vinculado a este login do Google. Para acessar as mensalidades, informe o CPF do responsável financeiro abaixo.
+          </p>
+          <form onSubmit={handleLinkCpf} className="space-y-4 pt-2 text-left">
+            <div>
+              <label htmlFor="portalCpf" className="block text-sm font-bold text-gray-700 mb-1">CPF do Responsável</label>
+              <input
+                type="text"
+                id="portalCpf"
+                value={cpfInput}
+                onChange={handleCpfChange}
+                required
+                maxLength={14}
+                className="w-full bg-gray-50 border border-gray-300 text-gray-900 placeholder-gray-400 text-lg rounded-lg focus:ring-dojo-primary focus:border-dojo-primary block p-3 transition-colors shadow-sm"
+                placeholder="000.000.000-00"
+              />
+            </div>
+            
+            {linkError && (
+              <div className="p-3 bg-red-100 border border-red-200 text-red-700 text-xs rounded-lg font-medium text-center">
+                {linkError}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isLinking}
+              className="w-full bg-dojo-primary text-white font-bold py-3 px-4 rounded-lg hover:bg-dojo-primary-hover shadow transition-all duration-200 flex justify-center items-center disabled:opacity-50"
+            >
+              {isLinking && (
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              )}
+              {isLinking ? 'Vinculando...' : 'Vincular Aluno'}
+            </button>
+          </form>
+        </div>
       </div>
     );
   }
@@ -77,8 +163,9 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student }) => {
   };
 
   const getMonthStatus = (monthIndex: number) => {
-    const studentStartYear = student.startDate.getFullYear();
-    const studentStartMonth = student.startDate.getMonth();
+    const startDateObj = new Date(student.startDate);
+    const studentStartYear = startDateObj.getFullYear();
+    const studentStartMonth = startDateObj.getMonth();
 
     // Before registration
     if (selectedYear < studentStartYear || (selectedYear === studentStartYear && monthIndex < studentStartMonth)) {
@@ -94,7 +181,8 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student }) => {
     // Overdue check
     const now = new Date();
     // Default due day is derived from student.dueDate day component
-    const dueDay = student.dueDate.getDate();
+    const dueDateObj = new Date(student.dueDate);
+    const dueDay = dueDateObj.getDate();
     const dueDateThisMonth = new Date(selectedYear, monthIndex, dueDay);
     
     // Reset hours for fair comparison
@@ -155,7 +243,8 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student }) => {
               {MONTHS.map((month, index) => {
                 const status = getMonthStatus(index);
                 const isSelected = selectedMonthIndices.includes(index);
-                const dueDateDisplay = new Date(selectedYear, index, student.dueDate.getDate()).toLocaleDateString('pt-BR');
+                const dueDateObj = new Date(student.dueDate);
+                const dueDateDisplay = new Date(selectedYear, index, dueDateObj.getDate()).toLocaleDateString('pt-BR');
 
                 return (
                   <tr 
@@ -186,7 +275,7 @@ const StudentPortal: React.FC<StudentPortalProps> = ({ student }) => {
                         {status.code === 'OVERDUE' && <span className="ml-2 text-[10px] text-red-600 font-bold hidden sm:inline">(Atrasado)</span>}
                     </td>
                     <td className="px-6 py-4 hidden sm:table-cell">{status.code === 'NA' ? '-' : dueDateDisplay}</td>
-                    <td className="px-6 py-4">R$ {status.code === 'NA' ? '-' : student.fee.toFixed(2)}</td>
+                    <td className="px-6 py-4 font-bold text-gray-800">{status.code === 'NA' ? '-' : `R$ ${student.fee.toFixed(2)}`}</td>
                     <td className="px-6 py-4">
                       <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${status.color} ${status.bg}`}>
                         {status.label}

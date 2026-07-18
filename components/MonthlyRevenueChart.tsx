@@ -20,7 +20,7 @@ const MonthlyRevenueChart: React.FC<MonthlyRevenueChartProps> = ({ students }) =
   const { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } = Recharts;
 
   const availableYears = useMemo(() => {
-    const years = new Set(students.map(s => s.dueDate.getFullYear()));
+    const years = new Set(students.map(s => new Date(s.dueDate).getFullYear()));
     // FIX: Explicitly type sort parameters as numbers to resolve TypeScript inference issue.
     return Array.from(years).sort((a: number, b: number) => b - a); // Sort descending
   }, [students]);
@@ -40,9 +40,12 @@ const MonthlyRevenueChart: React.FC<MonthlyRevenueChartProps> = ({ students }) =
     ];
 
     students
-      .filter(s => s.status === PaymentStatus.Paid && s.dueDate.getFullYear() === selectedYear)
+      .filter(s => {
+        const d = new Date(s.dueDate);
+        return s.status === PaymentStatus.Paid && d.getFullYear() === selectedYear;
+      })
       .forEach(s => {
-        const monthIndex = s.dueDate.getMonth();
+        const monthIndex = new Date(s.dueDate).getMonth();
         months[monthIndex].Receita += s.fee;
       });
 

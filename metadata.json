@@ -1,5 +1,6 @@
 {
   "name": "Centro de Treinamento Leandro Nascimento",
   "description": "Um aplicativo para gerenciar pagamentos de mensalidades, visualizar relatórios e notificar alunos do Centro de Treinamento Leandro Nascimento.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": []
 }

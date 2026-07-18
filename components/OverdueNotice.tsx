@@ -13,7 +13,7 @@ const OverdueNotice: React.FC<OverdueNoticeProps> = ({ students }) => {
   const handleSendReminders = () => {
     students.forEach(student => {
       const message = `Olá, ${student.name}! Tudo bem?\n\n` +
-        `Este é um lembrete do Centro de Treinamento Leandro Nascimento sobre a sua mensalidade de R$${student.fee.toFixed(2)}, que venceu em ${student.dueDate.toLocaleDateString('pt-BR')}.\n\n` +
+        `Este é um lembrete do Centro de Treinamento Leandro Nascimento sobre a sua mensalidade de R$${student.fee.toFixed(2)}, que venceu em ${new Date(student.dueDate).toLocaleDateString('pt-BR')}.\n\n` +
         `Para facilitar, você pode realizar o pagamento diretamente no seu Portal do Aluno.\n\n` +
         `Regularize sua situação para não perder nenhum treino! 😉\n\n` +
         `Qualquer dúvida, estamos à disposição.`;

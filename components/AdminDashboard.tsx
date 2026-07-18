@@ -46,7 +46,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const pendingStudents = useMemo(() => 
     students.filter(s => s.status === PaymentStatus.Pending)
-      .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
+      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
   , [students]);
 
   const stats = useMemo(() => {
@@ -72,10 +72,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const openWhatsApp = (student: Student) => {
     const today = new Date();
     today.setHours(0,0,0,0);
-    const isOverdue = new Date(student.dueDate) < today;
+    const dueDateObj = new Date(student.dueDate);
+    const isOverdue = dueDateObj < today;
     const message = isOverdue 
-      ? `Olá ${student.name.split(' ')[0]}! Tudo bem? Verificamos aqui que a sua mensalidade do CT Leandro Nascimento venceu dia ${student.dueDate.getDate()}. Consegue nos enviar o comprovante de pagamento? Oss! 🥋`
-      : `Olá ${student.name.split(' ')[0]}! Passando para lembrar que sua mensalidade vence dia ${student.dueDate.getDate()}. Tamo junto! Oss! 🥋`;
+      ? `Olá ${student.name.split(' ')[0]}! Tudo bem? Verificamos aqui que a sua mensalidade do CT Leandro Nascimento venceu dia ${dueDateObj.getDate()}. Consegue nos enviar o comprovante de pagamento? Oss! 🥋`
+      : `Olá ${student.name.split(' ')[0]}! Passando para lembrar que sua mensalidade vence dia ${dueDateObj.getDate()}. Tamo junto! Oss! 🥋`;
     window.open(`https://wa.me/${student.phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
@@ -104,7 +105,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {pendingStudents.length > 0 ? pendingStudents.map(student => {
                     const today = new Date();
                     today.setHours(0,0,0,0);
-                    const isOverdue = new Date(student.dueDate) < today;
+                    const dueDateObj = new Date(student.dueDate);
+                    const isOverdue = dueDateObj < today;
                     return (
                         <div key={student.id} className={`p-4 rounded-2xl border-2 transition-all ${isOverdue ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-100'}`}>
                             <div className="flex items-center gap-3 mb-4">
@@ -114,7 +116,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 <div className="min-w-0">
                                     <h4 className="font-bold text-gray-900 truncate">{student.name}</h4>
                                     <p className={`text-[10px] font-black uppercase ${isOverdue ? 'text-red-600' : 'text-amber-600'}`}>
-                                        {isOverdue ? '⚠️ ATRASADO' : 'Pendente'} • Dia {student.dueDate.getDate()}
+                                        {isOverdue ? '⚠️ ATRASADO' : 'Pendente'} • Dia {dueDateObj.getDate()}
                                     </p>
                                 </div>
                             </div>

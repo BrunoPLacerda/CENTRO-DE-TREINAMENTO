@@ -16,7 +16,7 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({ isOpen, onClose
 
   const availableYears = useMemo(() => {
     if (!student) return [2025];
-    const startYear = student.startDate.getFullYear();
+    const startYear = new Date(student.startDate).getFullYear();
     const currentYear = new Date().getFullYear();
     const years = [];
     for (let y = startYear; y <= currentYear + 1; y++) {
@@ -32,8 +32,9 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({ isOpen, onClose
   };
   
   const getMonthStatus = (monthIndex: number) => {
-    const studentStartYear = student.startDate.getFullYear();
-    const studentStartMonth = student.startDate.getMonth();
+    const startDateObj = new Date(student.startDate);
+    const studentStartYear = startDateObj.getFullYear();
+    const studentStartMonth = startDateObj.getMonth();
 
     if (selectedYear < studentStartYear || (selectedYear === studentStartYear && monthIndex < studentStartMonth)) {
       return 'N/A'; // Not Applicable
@@ -60,7 +61,7 @@ const StudentDetailModal: React.FC<StudentDetailModalProps> = ({ isOpen, onClose
           <InfoItem label="Responsável" value={student.guardian} />
           <InfoItem label="CPF Responsável" value={student.responsibleCpf} />
           <InfoItem label="Mensalidade" value={`R$ ${student.fee.toFixed(2)}`} />
-          <InfoItem label="Início do Treino" value={student.startDate.toLocaleDateString('pt-BR')} />
+          <InfoItem label="Início do Treino" value={new Date(student.startDate).toLocaleDateString('pt-BR')} />
         </div>
 
         <div>

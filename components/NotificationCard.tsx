@@ -8,7 +8,7 @@ interface NotificationCardProps {
 
 const NotificationCard: React.FC<NotificationCardProps> = ({ student }) => {
   const today = new Date();
-  const dueDate = student.dueDate;
+  const dueDate = new Date(student.dueDate);
   const timeDiff = dueDate.getTime() - today.getTime();
   const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
 

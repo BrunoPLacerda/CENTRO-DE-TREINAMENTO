@@ -1,131 +1,126 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import type { Student } from './types.ts';
-import { PaymentStatus } from './types.ts';
 import Header from './components/Header.tsx';
 import AdminDashboard from './components/AdminDashboard.tsx';
 import StudentPortal from './components/StudentPortal.tsx';
 import Login from './components/Login.tsx';
-
-const getInitialStudents = (): Student[] => {
-  const currentYear = 2025;
-  const lastYear = currentYear - 1;
-
-  return [
-    { 
-      id: 1, 
-      name: 'João Silva', 
-      age: 28, 
-      guardian: 'Próprio', 
-      responsibleCpf: '12345678901', 
-      fee: 150.00, 
-      status: PaymentStatus.Paid, 
-      dueDate: new Date(currentYear, 0, 5), 
-      phone: '5511999998888', 
-      startDate: new Date(lastYear, 0, 15), 
-      paymentHistory: { [currentYear]: [0,1,2,3], [lastYear]: [0,1,2,3,4,5,6,7,8,9,10,11] } 
-    },
-    { 
-      id: 2, 
-      name: 'Maria Oliveira', 
-      age: 22, 
-      guardian: 'Próprio', 
-      responsibleCpf: '12345678902', 
-      fee: 150.00, 
-      status: PaymentStatus.Pending, 
-      dueDate: new Date(currentYear, 0, 5), 
-      phone: '5522935000824', 
-      startDate: new Date(lastYear, 5, 1), 
-      paymentHistory: { [lastYear]: [5,6,7,8,9,10,11], [currentYear]: [] } 
-    },
-    { 
-      id: 3, 
-      name: 'Carlos Pereira', 
-      age: 35, 
-      guardian: 'Próprio', 
-      responsibleCpf: '12345678903', 
-      fee: 150.00, 
-      status: PaymentStatus.Paid, 
-      dueDate: new Date(currentYear, 1, 5), 
-      phone: '5531977776666', 
-      startDate: new Date(currentYear, 1, 1), 
-      paymentHistory: { [currentYear]: [1] } 
-    }
-  ];
-};
+import { api } from './src/lib/api.ts';
 
 const App: React.FC = () => {
   const [userRole, setUserRole] = useState<'admin' | 'student' | null>(null);
   const [currentUser, setCurrentUser] = useState<Student | null>(null);
-  const [students, setStudents] = useState<Student[]>(getInitialStudents);
+  const [students, setStudents] = useState<Student[]>([]);
   const [logo, setLogo] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleAdminLogin = (user: string, pass: string) => {
-    const isAdmin = (user === 'admin' && pass === 'admin123');
-    const isNewAdmin = (user === 'LNASCIMENTO' && pass === '123456');
-    
-    if (isAdmin || isNewAdmin) {
-      setUserRole('admin');
-      return true;
-    }
-    return false;
-  };
+  // Sync authentication and retrieve user profile / students from DB
+  const checkAuth = useCallback(async () => {
+    if (api.hasToken()) {
+      setLoading(true);
+      try {
+        const authData = await api.fetchMe();
+        const role = authData.user.role;
+        setUserRole(role);
 
-  const handleStudentLogin = (cpf: string) => {
-    const student = students.find(s => s.responsibleCpf === cpf);
-    if (student) {
-      setUserRole('student');
-      setCurrentUser(student);
-      return true;
-    }
-    return false;
-  };
-
-  const handleLogout = () => {
-    setUserRole(null);
-    setCurrentUser(null);
-  };
-
-  const handleDeleteStudent = (studentId: number) => {
-    setStudents(prev => prev.filter(s => s.id !== studentId));
-  };
-
-  const handleAddStudent = (newStudent: Omit<Student, 'id'>) => {
-    setStudents(prev => [...prev, { ...newStudent, id: Date.now() }]);
-  };
-
-  const handleUpdateStudent = (updatedStudent: Student) => {
-    setStudents(prev => prev.map(s => s.id === updatedStudent.id ? updatedStudent : s));
-  };
-
-  const handleUpdatePaymentHistory = (studentId: number, year: number, monthIndex: number) => {
-    setStudents(prev => prev.map(s => {
-      if (s.id === studentId) {
-        const history = { ...s.paymentHistory };
-        if (!history[year]) history[year] = [];
-        
-        if (history[year].includes(monthIndex)) {
-          history[year] = history[year].filter(m => m !== monthIndex);
+        const fetchedStudents = await api.fetchStudents();
+        if (role === 'admin') {
+          setStudents(fetchedStudents);
         } else {
-          history[year] = [...history[year], monthIndex].sort((a, b) => a - b);
+          // Student: retrieve linked student profile if it exists
+          if (fetchedStudents && fetchedStudents.length > 0) {
+            setCurrentUser(fetchedStudents[0]);
+          } else {
+            setCurrentUser(null);
+          }
         }
-
-        const now = new Date();
-        const currentMonth = now.getMonth();
-        const currentYear = now.getFullYear();
-        let newStatus = s.status;
-        if (year === currentYear && monthIndex === currentMonth) {
-            newStatus = history[year].includes(monthIndex) ? PaymentStatus.Paid : PaymentStatus.Pending;
-        }
-
-        return { ...s, paymentHistory: history, status: newStatus };
+      } catch (error) {
+        console.error('Error synchronizing auth state with database:', error);
+        api.logout();
+        setUserRole(null);
+        setCurrentUser(null);
+      } finally {
+        setLoading(false);
       }
-      return s;
-    }));
+    } else {
+      setUserRole(null);
+      setCurrentUser(null);
+      setStudents([]);
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
+  const handleLogout = async () => {
+    setLoading(true);
+    try {
+      api.logout();
+      setUserRole(null);
+      setCurrentUser(null);
+      setStudents([]);
+    } catch (error) {
+      console.error('Error during sign out:', error);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleDeleteStudent = async (studentId: number) => {
+    try {
+      await api.deleteStudent(studentId);
+      setStudents(prev => prev.filter(s => s.id !== studentId));
+    } catch (error: any) {
+      alert(error.message || 'Erro ao excluir aluno.');
+    }
+  };
+
+  const handleAddStudent = async (newStudent: Omit<Student, 'id'>) => {
+    try {
+      const added = await api.addStudent(newStudent);
+      setStudents(prev => [...prev, added]);
+    } catch (error: any) {
+      alert(error.message || 'Erro ao cadastrar aluno.');
+    }
+  };
+
+  const handleUpdateStudent = async (updatedStudent: Student) => {
+    try {
+      const updated = await api.updateStudent(updatedStudent.id, updatedStudent);
+      setStudents(prev => prev.map(s => s.id === updated.id ? updated : s));
+    } catch (error: any) {
+      alert(error.message || 'Erro ao atualizar aluno.');
+    }
+  };
+
+  const handleUpdatePaymentHistory = async (studentId: number, year: number, monthIndex: number) => {
+    try {
+      const updated = await api.updatePaymentHistory(studentId, year, monthIndex);
+      setStudents(prev => prev.map(s => s.id === updated.id ? updated : s));
+    } catch (error: any) {
+      alert(error.message || 'Erro ao atualizar histórico de pagamento.');
+    }
+  };
+
+  const handleCpfLinked = (student: Student) => {
+    setCurrentUser(student);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-dojo-dark flex flex-col justify-center items-center">
+        <svg className="animate-spin h-10 w-10 text-dojo-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <p className="mt-4 text-gray-400 font-medium">Carregando...</p>
+      </div>
+    );
+  }
 
   if (!userRole) {
-    return <Login onAdminLogin={handleAdminLogin} onStudentLogin={handleStudentLogin} logo={logo} />;
+    return <Login onLoginSuccess={checkAuth} logo={logo} />;
   }
 
   return (
@@ -147,7 +142,7 @@ const App: React.FC = () => {
             onUpdatePaymentHistory={handleUpdatePaymentHistory}
           />
         ) : (
-          <StudentPortal student={currentUser} />
+          <StudentPortal student={currentUser} onCpfLinked={handleCpfLinked} />
         )}
       </main>
     </div>

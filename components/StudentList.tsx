@@ -24,8 +24,8 @@ const StudentList: React.FC<StudentListProps> = ({ title, students, icon, onDele
     }
   };
   
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('pt-BR');
+  const formatDate = (date: any) => {
+    return new Date(date).toLocaleDateString('pt-BR');
   }
 
   const handleDeleteClick = (e: React.MouseEvent, student: Student) => {
